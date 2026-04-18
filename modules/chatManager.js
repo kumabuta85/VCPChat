@@ -120,6 +120,71 @@ window.chatManager = (() => {
     }
 
     /**
+     * 尝试自动播放消息的语音（如果满足条件）
+     * @param {Object} message - 消息对象
+     * @param {Object} currentSelectedItem - 当前选中的项目
+     * @param {Object} agentConfig - Agent 配置
+     */
+    async function attemptAutoSpeak(message, currentSelectedItem, agentConfig) {
+        // 检查是否启用了自动朗读
+        if (message.autoSpeak === false) {
+            console.log(`[AutoSpeak] 消息 ${message.id} 已禁用自动朗读`);
+            return;
+        }
+
+        // 检查是否配置了 TTS 语音
+        if (!agentConfig || !agentConfig.ttsVoicePrimary || agentConfig.ttsVoicePrimary === "") {
+            console.log(`[AutoSpeak] Agent 未配置 TTS 语音，跳过`);
+            return;
+        }
+
+        // 提取可朗读的文本
+        const messageElement = document.querySelector(`[data-message-id="${message.id}"]`);
+        if (!messageElement) {
+            console.warn(`[AutoSpeak] 找不到消息元素 ${message.id}`);
+            return;
+        }
+
+        const contentDiv = messageElement.querySelector('.md-content');
+        if (!contentDiv) {
+            console.warn(`[AutoSpeak] 找不到消息内容 ${message.id}`);
+            return;
+        }
+
+        const textToRead = messageRenderer?.extractSpeakableTextFromContentElement
+            ? messageRenderer.extractSpeakableTextFromContentElement(contentDiv)
+            : (contentDiv.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
+
+        if (!textToRead.trim()) {
+            console.log(`[AutoSpeak] 消息 ${message.id} 没有可朗读的文本`);
+            return;
+        }
+
+        // 播放语音
+        console.log(`[AutoSpeak] 正在播放消息 ${message.id} 的语音`);
+        
+        // 确保音频上下文已激活（关键步骤！）
+        if (typeof window.ensureAudioContext === 'function') {
+            window.ensureAudioContext();
+        }
+        
+        try {
+            electronAPI.sovitsSpeak({
+                text: textToRead,
+                voice: agentConfig.ttsVoicePrimary,
+                speed: agentConfig.ttsSpeed || 1.0,
+                msgId: message.id,
+                ttsRegex: agentConfig.ttsRegexPrimary,
+                voiceSecondary: agentConfig.ttsVoiceSecondary,
+                ttsRegexSecondary: agentConfig.ttsRegexSecondary
+            });
+            console.log(`[AutoSpeak] 语音播放请求已发送`);
+        } catch (error) {
+            console.error(`[AutoSpeak] 播放语音失败:`, error);
+        }
+    }
+
+    /**
      * Initializes the ChatManager module.
      * @param {object} config - The configuration object.
      */
@@ -1249,12 +1314,13 @@ window.chatManager = (() => {
                     const assistantMessageContent = response.choices[0].message.content;
                     const assistantMessage = {
                         role: 'assistant',
-                        name: responseContext?.agentName || responseContext?.agentId || 'AI', // 修复：使用 context 中的 agentName 或 agentId 作为回退
-                        avatarUrl: currentSelectedItem.avatarUrl, // This might be incorrect if user switched, but it's a minor UI detail for background saves.
+                        name: responseContext?.agentName || responseContext?.agentId || 'AI',
+                        avatarUrl: currentSelectedItem.avatarUrl,
                         avatarColor: (currentSelectedItem.config || currentSelectedItem)?.avatarCalculatedColor,
                         content: assistantMessageContent,
                         timestamp: Date.now(),
-                        id: `msg_${Date.now()}_assistant_${Math.random().toString(36).substring(2, 9)}`
+                        id: `msg_${Date.now()}_assistant_${Math.random().toString(36).substring(2, 9)}`,
+                        autoSpeak: true // 默认启用自动朗读
                     };
 
                     // Fetch the correct history from the file, update it, and save it back.
@@ -1271,7 +1337,11 @@ window.chatManager = (() => {
                             // If it's the active chat, also update the UI and in-memory state
                             currentChatHistoryRef.set(finalHistory);
                             window.updateSendButtonState?.();
-                            if (messageRenderer) messageRenderer.renderMessage(assistantMessage);
+                            if (messageRenderer) {
+                                messageRenderer.renderMessage(assistantMessage);
+                                // 触发自动朗读（如果启用）- 由 messageRenderer 内部处理
+                                // 不需要在这里调用 attemptAutoSpeak，因为 messageRenderer 会在渲染完成后自动处理
+                            }
                             await attemptTopicSummarizationIfNeeded();
                         } else {
                             console.log(`[ChatManager] Saved non-streaming response for background chat: Agent ${responseContext.agentId}, Topic ${responseContext.topicId}`);

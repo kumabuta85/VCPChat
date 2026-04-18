@@ -10,10 +10,10 @@ base_url = "http://127.0.0.1:8000"
 
 # --- 根据逆向源码得到的参数 ---
 text_to_speak = "功夫不负有心人，我们终于成功了！"
-# model 字段是固定的引擎版本标识符
-model_engine = "tts-v4" 
-# voice 字段是角色模型名称
-voice_name = "原神-中文-绮良良_ZH"
+# model 字段是固定的引擎版本标识符（使用 v2ProPlus）
+model_engine = "tts-v2ProPlus" 
+# voice 字段是角色模型名称（使用实际存在的模型）
+voice_name = "可莉_ZH"
 
 # --- 构建最终的、正确的请求体 ---
 payload = {

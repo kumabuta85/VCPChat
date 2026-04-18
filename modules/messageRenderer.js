@@ -1668,6 +1668,13 @@ async function renderMessage(message, isInitialLoad = false, appendToDom = true,
 
             // Finally, process any animations and execute scripts/3D scenes.
             processAnimationsInContent(contentDiv);
+            
+            // 触发自动朗读（如果是 Assistant 消息）
+            if (message.role === 'assistant' && !message.isThinking) {
+                setTimeout(() => {
+                    attemptAutoSpeakInRenderer(message);
+                }, 300);
+            }
         };
 
         // If we are appending directly to the DOM, schedule the processing immediately.
@@ -1922,6 +1929,94 @@ async function finalizeStreamedMessage(messageId, finishReason, context, finalPa
         if (contentDiv) {
             await renderMermaidDiagrams(contentDiv);
         }
+        
+        // 触发自动朗读（如果启用）
+        const finalMessage = mainRendererReferences.currentChatHistoryRef.get().find(m => m.id === messageId);
+        if (finalMessage && finalMessage.role === 'assistant') {
+            setTimeout(() => {
+                attemptAutoSpeakInRenderer(finalMessage);
+            }, 300);
+        }
+    }
+}
+
+/**
+ * 在 renderer 模块内部尝试自动播放语音
+ * @param {Object} message - 消息对象
+ */
+async function attemptAutoSpeakInRenderer(message) {
+    // 检查是否启用了自动朗读
+    if (message.autoSpeak === false) {
+        console.log(`[AutoSpeak] 消息 ${message.id} 已禁用自动朗读`);
+        return;
+    }
+
+    const currentSelectedItem = mainRendererReferences.currentSelectedItemRef.get();
+    const agentId = message.agentId || currentSelectedItem?.id;
+    
+    if (!agentId) {
+        console.warn(`[AutoSpeak] 无法确定 Agent ID`);
+        return;
+    }
+
+    // 获取 Agent 配置
+    let agentConfig;
+    try {
+        agentConfig = await mainRendererReferences.electronAPI.getAgentConfig(agentId);
+    } catch (error) {
+        console.error(`[AutoSpeak] 获取 Agent 配置失败:`, error);
+        return;
+    }
+
+    // 检查是否配置了 TTS 语音
+    if (!agentConfig || !agentConfig.ttsVoicePrimary || agentConfig.ttsVoicePrimary === "") {
+        console.log(`[AutoSpeak] Agent 未配置 TTS 语音，跳过`);
+        return;
+    }
+
+    // 提取可朗读的文本
+    const messageElement = mainRendererReferences.chatMessagesDiv.querySelector(`[data-message-id="${message.id}"]`);
+    if (!messageElement) {
+        console.warn(`[AutoSpeak] 找不到消息元素 ${message.id}`);
+        return;
+    }
+
+    const contentDiv = messageElement.querySelector('.md-content');
+    if (!contentDiv) {
+        console.warn(`[AutoSpeak] 找不到消息内容 ${message.id}`);
+        return;
+    }
+
+    const textToRead = mainRendererReferences.messageRenderer?.extractSpeakableTextFromContentElement
+        ? mainRendererReferences.messageRenderer.extractSpeakableTextFromContentElement(contentDiv)
+        : (contentDiv.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
+
+    if (!textToRead.trim()) {
+        console.log(`[AutoSpeak] 消息 ${message.id} 没有可朗读的文本`);
+        return;
+    }
+
+    // 播放语音
+    console.log(`[AutoSpeak] 正在播放消息 ${message.id} 的语音`);
+    
+    // 确保音频上下文已激活（关键步骤！）
+    if (typeof window.ensureAudioContext === 'function') {
+        window.ensureAudioContext();
+    }
+    
+    try {
+        mainRendererReferences.electronAPI.sovitsSpeak({
+            text: textToRead,
+            voice: agentConfig.ttsVoicePrimary,
+            speed: agentConfig.ttsSpeed || 1.0,
+            msgId: message.id,
+            ttsRegex: agentConfig.ttsRegexPrimary,
+            voiceSecondary: agentConfig.ttsVoiceSecondary,
+            ttsRegexSecondary: agentConfig.ttsRegexSecondary
+        });
+        console.log(`[AutoSpeak] 语音播放请求已发送`);
+    } catch (error) {
+        console.error(`[AutoSpeak] 播放语音失败:`, error);
     }
 }
 

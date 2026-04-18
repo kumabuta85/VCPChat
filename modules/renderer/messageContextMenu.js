@@ -330,6 +330,45 @@ function showContextMenu(event, messageItem, message) {
                 closeContextMenu();
             };
             menu.appendChild(readAloudOption);
+            
+            // Add "Toggle Auto Speak" option
+            const toggleAutoSpeakOption = document.createElement('div');
+            const isAutoSpeakEnabled = message.autoSpeak !== false; // 默认为 true
+            toggleAutoSpeakOption.classList.add('context-menu-item', isAutoSpeakEnabled ? 'warning-item' : 'info-item');
+            toggleAutoSpeakOption.innerHTML = isAutoSpeakEnabled 
+                ? `<i class="fas fa-volume-mute"></i> 禁用自动朗读`
+                : `<i class="fas fa-volume-up"></i> 启用自动朗读`;
+            toggleAutoSpeakOption.onclick = async () => {
+                // 切换 autoSpeak 状态
+                message.autoSpeak = !isAutoSpeakEnabled;
+                
+                // 保存到历史记录
+                const agentId = message.agentId || currentSelectedItemVal.id;
+                const topicId = message.topicId || currentTopicIdVal;
+                
+                if (agentId && topicId) {
+                    try {
+                        const history = await electronAPI.getChatHistory(agentId, topicId);
+                        if (history && !history.error) {
+                            const msgIndex = history.findIndex(m => m.id === message.id);
+                            if (msgIndex !== -1) {
+                                history[msgIndex].autoSpeak = message.autoSpeak;
+                                await electronAPI.saveChatHistory(agentId, topicId, history);
+                                uiHelper.showToastNotification(
+                                    isAutoSpeakEnabled ? '已禁用自动朗读' : '已启用自动朗读',
+                                    'success'
+                                );
+                            }
+                        }
+                    } catch (error) {
+                        console.error('保存 autoSpeak 状态失败:', error);
+                        uiHelper.showToastNotification('保存设置失败', 'error');
+                    }
+                }
+                
+                closeContextMenu();
+            };
+            menu.appendChild(toggleAutoSpeakOption);
         }
 
         const readModeOption = document.createElement('div');

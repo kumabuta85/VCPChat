@@ -168,8 +168,8 @@ class SovitsTTS {
                 console.log('网络音色列表已获取并缓存。');
                 return mergedVoiceOptions;
             } else {
-                console.log(`正在从 ${runtimeConfig.baseUrl}/models 获取本地模型列表...`);
-                const response = await axios.post(`${runtimeConfig.baseUrl}/models`, { version: "v2ProPlus" }, {
+                console.log(`正在从 ${runtimeConfig.baseUrl}/models/v2ProPlus 获取本地模型列表...`);
+                const response = await axios.get(`${runtimeConfig.baseUrl}/models/v2ProPlus`, {
                     headers: this.buildHeaders(runtimeConfig.apiKey)
                 });
 

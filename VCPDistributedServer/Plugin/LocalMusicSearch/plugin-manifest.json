@@ -1,0 +1,52 @@
+{
+  "name": "LocalMusicSearch",
+  "version": "1.0.0",
+  "description": "本地音乐搜索工具 - 根据情绪、场景、风格等标签快速找到合适的歌曲",
+  "author": "VCP",
+  "main": "search.js",
+  "scripts": {
+    "generate": "node generate_index.js",
+    "enhance": "node enhance_tags.js",
+    "enhance:api": "node enhance_tags.js --api",
+    "update": ".\\update.bat",
+    "test": "node search.js"
+  },
+  "config": {
+    "music_directory": "E:\\本地音乐\\MP3",
+    "output_directory": "F:\\VCP\\VCPChat-main\\VCPDistributedServer\\Plugin\\LocalMusicSearch\\output"
+  },
+  "tools": [
+    {
+      "name": "search",
+      "description": "根据标签搜索音乐",
+      "parameters": {
+        "mood": "情绪标签（欢快、伤感、浪漫、励志等）",
+        "scene": "场景标签（开车、运动、睡眠、恋爱等）",
+        "genre": "风格标签（流行、摇滚、古典、电子等）",
+        "language": "语言标签（中文、英文、日文、韩文）",
+        "limit": "返回数量限制（默认 10）"
+      }
+    },
+    {
+      "name": "getTagStats",
+      "description": "获取所有可用的标签统计信息"
+    },
+    {
+      "name": "getSongById",
+      "description": "根据 ID 获取歌曲详情"
+    },
+    {
+      "name": "getRandomSongs",
+      "description": "随机推荐歌曲"
+    }
+  ],
+  "keywords": [
+    "music",
+    "search",
+    "local",
+    "tag",
+    "mood",
+    "scene"
+  ],
+  "license": "MIT"
+}
