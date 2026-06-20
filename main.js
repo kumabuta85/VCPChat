@@ -325,8 +325,6 @@ function createWindow() {
         show: false, // Don't show until ready
     });
 
-    mainWindow.loadFile('main.html');
-
     // 拦截主窗口内的直接导航（防止在应用内打开外部网页）
     mainWindow.webContents.on('will-navigate', (event, url) => {
         if (url !== mainWindow.webContents.getURL() && (url.startsWith('http:') || url.startsWith('https:'))) {
@@ -1037,6 +1035,11 @@ if (!gotTheLock) {
             }
         })();
         // --- End of Distributed Server Initialization ---
+
+        // 所有 IPC handler 初始化完成后再加载主窗口，避免 renderer 调用时 "No handler registered" 错误
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.loadFile('main.html');
+        }
 
         app.on('activate', () => {
             // On macOS, re-show the main window when the dock icon is clicked.
