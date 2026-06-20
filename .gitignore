@@ -53,3 +53,4 @@ loudness_cache.db-shm
 /开发文档/
 VCPDistributedServer/config.env
 VCPDistributedServer/Plugin/VCPMobileSync/config.env
+vcpchat-start.log
