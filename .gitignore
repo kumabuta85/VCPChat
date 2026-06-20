@@ -51,3 +51,5 @@ loudness_cache.db-shm
 **/.codex/
 
 /开发文档/
+VCPDistributedServer/config.env
+VCPDistributedServer/Plugin/VCPMobileSync/config.env
