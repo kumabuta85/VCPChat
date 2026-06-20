@@ -37,6 +37,70 @@ window.chatManager = (() => {
 
 
 
+    function attachTimestampMetaToVcpMessage(vcpMessage, historyMessage) {
+        if (!vcpMessage || !historyMessage || !historyMessage.id || typeof historyMessage.timestamp !== 'number') {
+            return vcpMessage;
+        }
+        return {
+            ...vcpMessage,
+            __vcpchatTimestampMeta: {
+                messageId: historyMessage.id,
+                role: historyMessage.role,
+                timestamp: historyMessage.timestamp
+            }
+        };
+    }
+
+    function buildTurnDepthMap(history = []) {
+        const turns = [];
+        for (let i = history.length - 1; i >= 0; i--) {
+            if (history[i].role === 'assistant') {
+                const turn = { assistant: history[i], user: null };
+                if (i > 0 && history[i - 1].role === 'user') {
+                    turn.user = history[i - 1];
+                    i--;
+                }
+                turns.push(turn);
+            } else if (history[i].role === 'user') {
+                turns.push({ assistant: null, user: history[i] });
+            }
+        }
+        turns.reverse();
+
+        const depthMap = new Map();
+        turns.forEach((turn, turnIndex) => {
+            const depth = turns.length - 1 - turnIndex;
+            if (turn.assistant?.id) {
+                depthMap.set(turn.assistant.id, depth);
+            }
+            if (turn.user?.id) {
+                depthMap.set(turn.user.id, depth);
+            }
+        });
+        return depthMap;
+    }
+
+    function getCompiledRegex(rule) {
+        if (!rule?.findPattern) {
+            return null;
+        }
+
+        if (window.uiHelperFunctions?.getCompiledRegex) {
+            const compiled = window.uiHelperFunctions.getCompiledRegex(rule.findPattern);
+            return compiled?.regex || null;
+        }
+
+        if (window.uiHelperFunctions?.regexFromString) {
+            return window.uiHelperFunctions.regexFromString(rule.findPattern);
+        }
+
+        const regexMatch = rule.findPattern.match(/^\/(.+?)\/([gimuy]*)$/);
+        if (regexMatch) {
+            return new RegExp(regexMatch[1], regexMatch[2]);
+        }
+        return new RegExp(rule.findPattern, 'g');
+    }
+
     /**
      * 应用单个正则规则到文本
      * @param {string} text - 输入文本
@@ -49,24 +113,14 @@ window.chatManager = (() => {
         }
 
         try {
-            // 使用 uiHelperFunctions.regexFromString 来解析正则表达式
-            let regex = null;
-            if (window.uiHelperFunctions && window.uiHelperFunctions.regexFromString) {
-                regex = window.uiHelperFunctions.regexFromString(rule.findPattern);
-            } else {
-                // 后备方案：手动解析
-                const regexMatch = rule.findPattern.match(/^\/(.+?)\/([gimuy]*)$/);
-                if (regexMatch) {
-                    regex = new RegExp(regexMatch[1], regexMatch[2]);
-                } else {
-                    regex = new RegExp(rule.findPattern, 'g');
-                }
-            }
+            const regex = getCompiledRegex(rule);
             
             if (!regex) {
                 console.error('无法解析正则表达式', rule.findPattern);
                 return text;
             }
+
+            regex.lastIndex = 0;
             
             // 应用替换（如果没有替换内容，则默认替换为空字符串）
             return text.replace(regex, rule.replaceWith || '');
@@ -74,6 +128,28 @@ window.chatManager = (() => {
             console.error('应用正则规则时出错', rule.findPattern, error);
             return text;
         }
+    }
+
+    function getActiveRegexRules(rules, scope, role, depth = 0) {
+        if (!rules || !Array.isArray(rules)) {
+            return [];
+        }
+
+        return rules.filter(rule => {
+            if (!rule || rule.enabled === false || !rule.findPattern) return false;
+
+            const shouldApplyToScope =
+                (scope === 'context' && rule.applyToContext) ||
+                (scope === 'frontend' && rule.applyToFrontend);
+            if (!shouldApplyToScope) return false;
+
+            const shouldApplyToRole = rule.applyToRoles && rule.applyToRoles.includes(role);
+            if (!shouldApplyToRole) return false;
+
+            const minDepthOk = rule.minDepth === undefined || rule.minDepth === -1 || depth >= rule.minDepth;
+            const maxDepthOk = rule.maxDepth === undefined || rule.maxDepth === -1 || depth <= rule.maxDepth;
+            return minDepthOk && maxDepthOk;
+        });
     }
 
     /**
@@ -90,29 +166,14 @@ window.chatManager = (() => {
             return text;
         }
 
+        const activeRules = getActiveRegexRules(rules, scope, role, depth);
+        if (activeRules.length === 0) {
+            return text;
+        }
+
         let processedText = text;
         
-        rules.forEach(rule => {
-            // 检查是否应该应用此规则
-            
-            // 1. 检查作用域
-            const shouldApplyToScope =
-                (scope === 'context' && rule.applyToContext) ||
-                (scope === 'frontend' && rule.applyToFrontend);
-            
-            if (!shouldApplyToScope) return;
-            
-            // 2. 检查角色
-            const shouldApplyToRole = rule.applyToRoles && rule.applyToRoles.includes(role);
-            if (!shouldApplyToRole) return;
-            
-            // 3. 检查深度（-1 表示无限制）
-            const minDepthOk = rule.minDepth === undefined || rule.minDepth === -1 || depth >= rule.minDepth;
-            const maxDepthOk = rule.maxDepth === undefined || rule.maxDepth === -1 || depth <= rule.maxDepth;
-            
-            if (!minDepthOk || !maxDepthOk) return;
-            
-            // 应用规则
+        activeRules.forEach(rule => {
             processedText = applyRegexRule(processedText, rule);
         });
         
@@ -120,68 +181,55 @@ window.chatManager = (() => {
     }
 
     /**
-     * 尝试自动播放消息的语音（如果满足条件）
-     * @param {Object} message - 消息对象
-     * @param {Object} currentSelectedItem - 当前选中的项目
-     * @param {Object} agentConfig - Agent 配置
+     * 收集当前生效的 Tavern (VCPChatTarven) 规则
+     * @param {string} scope - 'agent' | 'group'
+     * @returns {Array} active rules
      */
-    async function attemptAutoSpeak(message, currentSelectedItem, agentConfig) {
-        // 检查是否启用了自动朗读
-        if (message.autoSpeak === false) {
-            console.log(`[AutoSpeak] 消息 ${message.id} 已禁用自动朗读`);
-            return;
+    function getTavernRules(scope) {
+        const manager = window.TavernManager;
+        if (manager && typeof manager.getActiveRulesForScope === 'function') {
+            return manager.getActiveRulesForScope(scope) || [];
         }
+        return [];
+    }
 
-        // 检查是否配置了 TTS 语音
-        if (!agentConfig || !agentConfig.ttsVoicePrimary || agentConfig.ttsVoicePrimary === "") {
-            console.log(`[AutoSpeak] Agent 未配置 TTS 语音，跳过`);
-            return;
-        }
+    /**
+     * 把 user_suffix 规则的内容追加到给定文本尾部
+     * @param {string} text
+     * @param {Array} rules
+     * @returns {string}
+     */
+    function applyTavernUserSuffix(text, rules) {
+        const engine = window.TavernRulesEngine;
+        if (!engine || !Array.isArray(rules) || rules.length === 0) return text || '';
+        return engine.applyUserSuffix(text || '', rules, 'agent');
+    }
 
-        // 提取可朗读的文本
-        const messageElement = document.querySelector(`[data-message-id="${message.id}"]`);
-        if (!messageElement) {
-            console.warn(`[AutoSpeak] 找不到消息元素 ${message.id}`);
-            return;
-        }
+    /**
+     * 把 system_suffix 规则的内容追加到系统提示词尾部
+     */
+    function applyTavernSystemSuffix(systemPromptContent, rules) {
+        const engine = window.TavernRulesEngine;
+        if (!engine || !Array.isArray(rules) || rules.length === 0) return systemPromptContent || '';
+        return engine.applySystemSuffix(systemPromptContent || '', rules, 'agent');
+    }
 
-        const contentDiv = messageElement.querySelector('.md-content');
-        if (!contentDiv) {
-            console.warn(`[AutoSpeak] 找不到消息内容 ${message.id}`);
-            return;
+    /**
+     * 把 context_inject 规则按 depth 插入到 VCP 消息数组中（不含 system）
+     * 用于单聊场景；message 的 content 使用 multimodal text 部分
+     */
+    function applyTavernContextInject(messagesForVCP, rules) {
+        const engine = window.TavernRulesEngine;
+        if (!engine || !Array.isArray(rules) || rules.length === 0) {
+            return messagesForVCP;
         }
-
-        const textToRead = messageRenderer?.extractSpeakableTextFromContentElement
-            ? messageRenderer.extractSpeakableTextFromContentElement(contentDiv)
-            : (contentDiv.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
-
-        if (!textToRead.trim()) {
-            console.log(`[AutoSpeak] 消息 ${message.id} 没有可朗读的文本`);
-            return;
-        }
-
-        // 播放语音
-        console.log(`[AutoSpeak] 正在播放消息 ${message.id} 的语音`);
-        
-        // 确保音频上下文已激活（关键步骤！）
-        if (typeof window.ensureAudioContext === 'function') {
-            window.ensureAudioContext();
-        }
-        
-        try {
-            electronAPI.sovitsSpeak({
-                text: textToRead,
-                voice: agentConfig.ttsVoicePrimary,
-                speed: agentConfig.ttsSpeed || 1.0,
-                msgId: message.id,
-                ttsRegex: agentConfig.ttsRegexPrimary,
-                voiceSecondary: agentConfig.ttsVoiceSecondary,
-                ttsRegexSecondary: agentConfig.ttsRegexSecondary
-            });
-            console.log(`[AutoSpeak] 语音播放请求已发送`);
-        } catch (error) {
-            console.error(`[AutoSpeak] 播放语音失败:`, error);
-        }
+        return engine.applyContextInject(messagesForVCP, rules, 'agent', {
+            makeMessage: (role, text) => ({
+                role,
+                content: [{ type: 'text', text }],
+                __tavernInjected: true
+            })
+        });
     }
 
     /**
@@ -1030,6 +1078,16 @@ window.chatManager = (() => {
             const currentChatHistory = currentChatHistoryRef.get();
             const historySnapshotForVCP = currentChatHistory.filter(msg => msg.id !== thinkingMessage.id && !msg.isThinking);
 
+            // VCPChatTarven (高级回复) - 收集生效的规则
+            const tavernRules = getTavernRules('agent');
+            const contextRegexRules = Array.isArray(agentConfig?.stripRegexes)
+                ? agentConfig.stripRegexes
+                : [];
+            const hasContextRegexRules = contextRegexRules.some(rule => rule?.enabled !== false && rule.applyToContext);
+            const contextDepthMap = hasContextRegexRules
+                ? buildTurnDepthMap(historySnapshotForVCP)
+                : null;
+
             const messagesForVCP = await Promise.all(historySnapshotForVCP.map(async msg => {
                 let vcpImageAttachmentsPayload = [];
                 let vcpAudioAttachmentsPayload = [];
@@ -1037,32 +1095,14 @@ window.chatManager = (() => {
                 let currentMessageTextContent = msg.content;
 
                 // --- 应用正则规则（后端上下文）---
-                if (agentConfig?.stripRegexes && Array.isArray(agentConfig.stripRegexes) && agentConfig.stripRegexes.length > 0) {
-                    // --- 按“对话轮次”计算深度 ---
-                    const turns = [];
-                    for (let i = historySnapshotForVCP.length - 1; i >= 0; i--) {
-                        if (historySnapshotForVCP[i].role === 'assistant') {
-                            const turn = { assistant: historySnapshotForVCP[i], user: null };
-                            if (i > 0 && historySnapshotForVCP[i - 1].role === 'user') {
-                                turn.user = historySnapshotForVCP[i - 1];
-                                i--; // 跳过用户消息，因为已经配对
-                            }
-                            turns.unshift(turn);
-                        } else if (historySnapshotForVCP[i].role === 'user') {
-                            // 处理末尾的单个用户消息
-                            turns.unshift({ assistant: null, user: historySnapshotForVCP[i] });
-                        }
-                    }
-                    
-                    // 找到当前消息所在的轮次
-                    const turnIndex = turns.findIndex(t => (t.assistant && t.assistant.id === msg.id) || (t.user && t.user.id === msg.id));
-                    const depth = turnIndex !== -1 ? (turns.length - 1 - turnIndex) : -1;
+                if (hasContextRegexRules && contextDepthMap) {
+                    const depth = contextDepthMap.get(msg.id);
 
-                    if (depth !== -1) {
+                    if (depth !== undefined) {
                         // 应用规则到消息内容
                         currentMessageTextContent = applyRegexRules(
                             currentMessageTextContent,
-                            agentConfig.stripRegexes,
+                            contextRegexRules,
                             'context',  // 这里处理的是发送给AI的上下文
                             msg.role,
                             depth
@@ -1075,7 +1115,10 @@ window.chatManager = (() => {
                 if (msg.role === 'user' && msg.id === userMessage.id) {
                     // 关键修复：使用已经包含附件内容的 combinedTextContent
                     currentMessageTextContent = combinedTextContent;
-                    
+
+                    // VCPChatTarven: 在当前用户消息尾部追加 user_suffix 规则
+                    currentMessageTextContent = applyTavernUserSuffix(currentMessageTextContent, tavernRules);
+
                     // IMPORTANT: We need to handle Canvas placeholder WITHOUT overwriting the combined content
                     // First, check if we need to replace Canvas placeholder
                     if (currentMessageTextContent.includes(CANVAS_PLACEHOLDER)) {
@@ -1099,13 +1142,20 @@ window.chatManager = (() => {
                     for (const att of msg.attachments) {
                         const fileManagerData = att._fileManagerData || {};
                         // 优先使用 att.src，因为它代表前端的本地可访问路径
-                        // 后备为 internalPath（来自 fileManager），最后才是文件名
-                        const filePathForContext = att.src || (fileManagerData.internalPath ? fileManagerData.internalPath.replace('file://', '') : (att.name || '未知文件'));
+                        // 后备为 internalPath（来自 fileManager 或 att 顶层），最后才是文件名
+                        // 兼容两种附件结构：通过正常发送的附件（数据在 _fileManagerData 中）
+                        // 和通过 addAttachmentsToMessage 添加的附件（数据直接在 att 顶层）
+                        const effectiveInternalPath = fileManagerData.internalPath || att.internalPath;
+                        const filePathForContext = att.src || (effectiveInternalPath ? effectiveInternalPath.replace('file://', '') : (att.name || '未知文件'));
 
-                        if (fileManagerData.imageFrames && fileManagerData.imageFrames.length > 0) {
+                        // 兼容读取：优先从 _fileManagerData 读取，回退到 att 顶层字段
+                        const effectiveImageFrames = fileManagerData.imageFrames || att.imageFrames;
+                        const effectiveExtractedText = fileManagerData.extractedText || att.extractedText;
+
+                        if (effectiveImageFrames && effectiveImageFrames.length > 0) {
                              historicalAppendedText += `\n\n[附加文件: ${filePathForContext} (扫描版PDF，已转换为图片)]`;
-                        } else if (fileManagerData.extractedText) {
-                            historicalAppendedText += `\n\n[附加文件: ${filePathForContext}]\n${fileManagerData.extractedText}\n[/附加文件结束: ${att.name || '未知文件'}]`;
+                        } else if (effectiveExtractedText) {
+                            historicalAppendedText += `\n\n[附加文件: ${filePathForContext}]\n${effectiveExtractedText}\n[/附加文件结束: ${att.name || '未知文件'}]`;
                         } else {
                             // 对于没有提取文本的文件（如音视频），只附加路径
                             historicalAppendedText += `\n\n[附加文件: ${filePathForContext}]`;
@@ -1118,17 +1168,19 @@ window.chatManager = (() => {
                     // --- IMAGE PROCESSING ---
                     const imageAttachmentsPromises = msg.attachments.map(async att => {
                         const fileManagerData = att._fileManagerData || {};
+                        // 兼容读取：优先从 _fileManagerData 读取，回退到 att 顶层字段
+                        const effectiveImageFrames = fileManagerData.imageFrames || att.imageFrames;
                         // Case 1: Scanned PDF converted to image frames
-                        if (fileManagerData.imageFrames && fileManagerData.imageFrames.length > 0) {
-                            return fileManagerData.imageFrames.map(frameData => ({
+                        if (effectiveImageFrames && effectiveImageFrames.length > 0) {
+                            return effectiveImageFrames.map(frameData => ({
                                 type: 'image_url',
                                 image_url: { url: `data:image/jpeg;base64,${frameData}` }
                             }));
                         }
                         // Case 2: Regular image file (including GIFs that get framed)
-                        if (att.type.startsWith('image/')) {
+                        if (att.type && att.type.startsWith('image/')) {
                             try {
-                                const result = await electronAPI.getFileAsBase64(att.src);
+                                const result = await electronAPI.getFileAsBase64(att.src || att.internalPath);
                                 if (result && result.success) {
                                     return result.base64Frames.map(frameData => ({
                                         type: 'image_url',
@@ -1156,10 +1208,10 @@ window.chatManager = (() => {
                     // --- AUDIO PROCESSING ---
                     const supportedAudioTypes = ['audio/wav', 'audio/mpeg', 'audio/mp3', 'audio/aiff', 'audio/aac', 'audio/ogg', 'audio/flac'];
                     const audioAttachmentsPromises = msg.attachments
-                        .filter(att => supportedAudioTypes.includes(att.type))
+                        .filter(att => att.type && supportedAudioTypes.includes(att.type))
                         .map(async att => {
                             try {
-                                const result = await electronAPI.getFileAsBase64(att.src);
+                                const result = await electronAPI.getFileAsBase64(att.src || att.internalPath);
                                 if (result && result.success) {
                                     return result.base64Frames.map(frameData => ({
                                         type: 'image_url',
@@ -1182,10 +1234,10 @@ window.chatManager = (() => {
 
                     // --- VIDEO PROCESSING ---
                     const videoAttachmentsPromises = msg.attachments
-                        .filter(att => att.type.startsWith('video/'))
+                        .filter(att => att.type && att.type.startsWith('video/'))
                         .map(async att => {
                             try {
-                                const result = await electronAPI.getFileAsBase64(att.src);
+                                const result = await electronAPI.getFileAsBase64(att.src || att.internalPath);
                                 if (result && result.success) {
                                     return result.base64Frames.map(frameData => ({
                                         type: 'image_url',
@@ -1219,7 +1271,10 @@ window.chatManager = (() => {
                      finalContentPartsForVCP.push({ type: 'text', text: '(用户发送了附件，但无文本或图片内容)' });
                 }
                 
-                return { role: msg.role, content: finalContentPartsForVCP.length > 0 ? finalContentPartsForVCP : msg.content };
+                return attachTimestampMetaToVcpMessage(
+                    { role: msg.role, content: finalContentPartsForVCP.length > 0 ? finalContentPartsForVCP : msg.content },
+                    msg
+                );
             }));
 
             if (agentConfig && agentConfig.systemPrompt) {
@@ -1248,7 +1303,26 @@ window.chatManager = (() => {
                     systemPromptContent = prependedContent.join('\n') + '\n\n' + systemPromptContent;
                 }
 
+                // VCPChatTarven: 在系统提示词尾部追加 system_suffix 规则
+                systemPromptContent = applyTavernSystemSuffix(systemPromptContent, tavernRules);
+
                 messagesForVCP.unshift({ role: 'system', content: systemPromptContent });
+            } else {
+                // 没有 systemPrompt，但仍可能存在 system_suffix 规则
+                const tavernSysOnly = applyTavernSystemSuffix('', tavernRules);
+                if (tavernSysOnly && tavernSysOnly.trim()) {
+                    messagesForVCP.unshift({ role: 'system', content: tavernSysOnly });
+                }
+            }
+
+            // VCPChatTarven: 应用 context_inject 规则（按深度插入消息）
+            // 注意：只对非 system 消息计算深度，因此先临时分离 system
+            if (Array.isArray(tavernRules) && tavernRules.some(r => r.type === 'context_inject' && r.enabled !== false)) {
+                const systemMsgs = messagesForVCP.filter(m => m.role === 'system');
+                const nonSystemMsgs = messagesForVCP.filter(m => m.role !== 'system');
+                const injected = applyTavernContextInject(nonSystemMsgs, tavernRules);
+                messagesForVCP.length = 0;
+                messagesForVCP.push(...systemMsgs, ...injected);
             }
 
             const useStreaming = (agentConfig && agentConfig.streamOutput !== undefined) ? (agentConfig.streamOutput === true || agentConfig.streamOutput === 'true') : true;
@@ -1274,7 +1348,9 @@ window.chatManager = (() => {
                 agentId: currentSelectedItem.id,
                 agentName: currentSelectedItem.name || currentSelectedItem.id, // 修复：为单聊上下文添加 agentName，并使用 ID 作为回退
                 topicId: currentTopicId,
-                isGroupMessage: false
+                isGroupMessage: false,
+                avatarUrl: currentSelectedItem.avatarUrl,
+                avatarColor: (currentSelectedItem.config || currentSelectedItem)?.avatarCalculatedColor
             };
 
             const vcpResponse = await electronAPI.sendToVCP(
@@ -1314,13 +1390,12 @@ window.chatManager = (() => {
                     const assistantMessageContent = response.choices[0].message.content;
                     const assistantMessage = {
                         role: 'assistant',
-                        name: responseContext?.agentName || responseContext?.agentId || 'AI',
-                        avatarUrl: currentSelectedItem.avatarUrl,
+                        name: responseContext?.agentName || responseContext?.agentId || 'AI', // 修复：使用 context 中的 agentName 或 agentId 作为回退
+                        avatarUrl: currentSelectedItem.avatarUrl, // This might be incorrect if user switched, but it's a minor UI detail for background saves.
                         avatarColor: (currentSelectedItem.config || currentSelectedItem)?.avatarCalculatedColor,
                         content: assistantMessageContent,
                         timestamp: Date.now(),
-                        id: `msg_${Date.now()}_assistant_${Math.random().toString(36).substring(2, 9)}`,
-                        autoSpeak: true // 默认启用自动朗读
+                        id: `msg_${Date.now()}_assistant_${Math.random().toString(36).substring(2, 9)}`
                     };
 
                     // Fetch the correct history from the file, update it, and save it back.
@@ -1337,11 +1412,7 @@ window.chatManager = (() => {
                             // If it's the active chat, also update the UI and in-memory state
                             currentChatHistoryRef.set(finalHistory);
                             window.updateSendButtonState?.();
-                            if (messageRenderer) {
-                                messageRenderer.renderMessage(assistantMessage);
-                                // 触发自动朗读（如果启用）- 由 messageRenderer 内部处理
-                                // 不需要在这里调用 attemptAutoSpeak，因为 messageRenderer 会在渲染完成后自动处理
-                            }
+                            if (messageRenderer) messageRenderer.renderMessage(assistantMessage);
                             await attemptTopicSummarizationIfNeeded();
                         } else {
                             console.log(`[ChatManager] Saved non-streaming response for background chat: Agent ${responseContext.agentId}, Topic ${responseContext.topicId}`);

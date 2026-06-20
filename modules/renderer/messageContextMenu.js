@@ -11,6 +11,9 @@ let contextMenuDependencies = {};
 function initializeContextMenu(refs, dependencies) {
     mainRefs = refs;
     contextMenuDependencies = dependencies;
+
+    // 防止重复初始化时叠加全局点击监听，造成右键菜单关闭逻辑重复触发
+    document.removeEventListener('click', closeContextMenuOnClickOutside, true);
     document.addEventListener('click', closeContextMenuOnClickOutside, true);
 }
 
@@ -197,8 +200,10 @@ function showContextMenu(event, messageItem, message) {
             if (contentDiv) {
                 // 克隆节点以避免修改实时显示的DOM
                 const contentClone = contentDiv.cloneNode(true);
-                // 移除工具使用气泡、样式表和脚本，以获得更干净的复制内容
-                contentClone.querySelectorAll('.vcp-tool-use-bubble, .vcp-tool-result-bubble, style, script').forEach(el => el.remove());
+                // 移除不应参与复制的渲染辅助节点，避免把附件删除按钮的 × 一起复制进去
+                contentClone.querySelectorAll(
+                    '.vcp-tool-use-bubble, .vcp-tool-result-bubble, .vcp-tool-call-summary-bubble, .vcp-role-divider, .vcp-thought-chain-bubble, .message-attachments, .message-attachment-remove-btn, style, script'
+                ).forEach(el => el.remove());
                 // 修复：清理多余的空行，确保最多只有一个空行
                 textToCopy = contentClone.innerText.replace(/\n{3,}/g, '\n\n').trim();
             } else {
@@ -330,92 +335,6 @@ function showContextMenu(event, messageItem, message) {
                 closeContextMenu();
             };
             menu.appendChild(readAloudOption);
-            
-            const stopSpeakOption = document.createElement('div');
-            stopSpeakOption.classList.add('context-menu-item', 'warning-item');
-            stopSpeakOption.innerHTML = `<i class="fas fa-stop"></i> 停止朗读`;
-            stopSpeakOption.onclick = () => {
-                electronAPI.sovitsStop();
-                uiHelper.showToastNotification("已停止朗读", "info");
-                closeContextMenu();
-            };
-            menu.appendChild(stopSpeakOption);
-            
-            // 全局禁用自动朗读选项
-            const globalSettings = mainRefs.globalSettingsRef.get();
-            const isGlobalAutoSpeakDisabled = globalSettings && globalSettings.disableAutoSpeak === true;
-            
-            const toggleGlobalAutoSpeakOption = document.createElement('div');
-            toggleGlobalAutoSpeakOption.classList.add('context-menu-item', isGlobalAutoSpeakDisabled ? 'info-item' : 'warning-item');
-            toggleGlobalAutoSpeakOption.innerHTML = isGlobalAutoSpeakDisabled
-                ? `<i class="fas fa-volume-up"></i> 启用自动朗读`
-                : `<i class="fas fa-volume-mute"></i> 禁用自动朗读`;
-            toggleGlobalAutoSpeakOption.onclick = async () => {
-                // 切换全局 autoSpeak 状态
-                const newGlobalSettings = {
-                    ...globalSettings,
-                    disableAutoSpeak: !isGlobalAutoSpeakDisabled
-                };
-                
-                try {
-                    await mainRefs.electronAPI.saveSettings(newGlobalSettings);
-                    mainRefs.globalSettingsRef.set(newGlobalSettings);
-                    uiHelper.showToastNotification(
-                        isGlobalAutoSpeakDisabled ? '已启用自动朗读' : '已禁用自动朗读',
-                        'success'
-                    );
-                } catch (error) {
-                    console.error('保存全局自动朗读设置失败:', error);
-                    uiHelper.showToastNotification('保存设置失败', 'error');
-                }
-                
-                closeContextMenu();
-            };
-            menu.appendChild(toggleGlobalAutoSpeakOption);
-            
-            // 分隔线
-            const divider = document.createElement('div');
-            divider.classList.add('context-menu-divider');
-            menu.appendChild(divider);
-            
-            // 仅针对当前消息的选项
-            const toggleAutoSpeakOption = document.createElement('div');
-            const isAutoSpeakEnabled = message.autoSpeak !== false; // 默认为 true
-            toggleAutoSpeakOption.classList.add('context-menu-item', isAutoSpeakEnabled ? 'warning-item' : 'info-item');
-            toggleAutoSpeakOption.innerHTML = isAutoSpeakEnabled 
-                ? `<i class="fas fa-volume-mute"></i> 对此消息禁用自动朗读`
-                : `<i class="fas fa-volume-up"></i> 对此消息启用自动朗读`;
-            toggleAutoSpeakOption.onclick = async () => {
-                // 切换 autoSpeak 状态
-                message.autoSpeak = !isAutoSpeakEnabled;
-                
-                // 保存到历史记录
-                const agentId = message.agentId || currentSelectedItemVal.id;
-                const topicId = message.topicId || currentTopicIdVal;
-                
-                if (agentId && topicId) {
-                    try {
-                        const history = await electronAPI.getChatHistory(agentId, topicId);
-                        if (history && !history.error) {
-                            const msgIndex = history.findIndex(m => m.id === message.id);
-                            if (msgIndex !== -1) {
-                                history[msgIndex].autoSpeak = message.autoSpeak;
-                                await electronAPI.saveChatHistory(agentId, topicId, history);
-                                uiHelper.showToastNotification(
-                                    isAutoSpeakEnabled ? '已对此消息禁用自动朗读' : '已对此消息启用自动朗读',
-                                    'success'
-                                );
-                            }
-                        }
-                    } catch (error) {
-                        console.error('保存 autoSpeak 状态失败:', error);
-                        uiHelper.showToastNotification('保存设置失败', 'error');
-                    }
-                }
-                
-                closeContextMenu();
-            };
-            menu.appendChild(toggleAutoSpeakOption);
         }
 
         const readModeOption = document.createElement('div');
@@ -575,7 +494,8 @@ function toggleEditMode(messageItem, message) {
             contextMenuDependencies.updateMessageContent(message.id, textToDisplay);
         } else {
             // Fallback for safety, though updateMessageContent should be available now
-            const rawHtml = markedInstance.parse(contextMenuDependencies.preprocessFullContent(textToDisplay));
+            const ppResult = contextMenuDependencies.preprocessFullContent(textToDisplay);
+            const rawHtml = markedInstance.parse(ppResult.text || ppResult);
             contextMenuDependencies.setContentAndProcessImages(contentDiv, rawHtml, message.id);
             contextMenuDependencies.processRenderedContent(contentDiv);
             setTimeout(() => {
@@ -686,7 +606,8 @@ function toggleEditMode(messageItem, message) {
                     contextMenuDependencies.updateMessageContent(message.id, newContent);
                 } else {
                     // Fallback for safety
-                    const rawHtml = markedInstance.parse(contextMenuDependencies.preprocessFullContent(newContent));
+                    const ppResult2 = contextMenuDependencies.preprocessFullContent(newContent);
+                    const rawHtml = markedInstance.parse(ppResult2.text || ppResult2);
                     contextMenuDependencies.setContentAndProcessImages(contentDiv, rawHtml, message.id);
                     contextMenuDependencies.processRenderedContent(contentDiv);
                     contextMenuDependencies.renderAttachments(message, contentDiv);
@@ -758,6 +679,20 @@ function toggleEditMode(messageItem, message) {
     }
 }
 
+function attachTimestampMetaToVcpMessage(vcpMessage, historyMessage) {
+    if (!vcpMessage || !historyMessage || !historyMessage.id || typeof historyMessage.timestamp !== 'number') {
+        return vcpMessage;
+    }
+    return {
+        ...vcpMessage,
+        __vcpchatTimestampMeta: {
+            messageId: historyMessage.id,
+            role: historyMessage.role,
+            timestamp: historyMessage.timestamp
+        }
+    };
+}
+
 async function handleRegenerateResponse(originalAssistantMessage) {
     const { electronAPI, uiHelper } = mainRefs;
     const currentChatHistoryArray = mainRefs.currentChatHistoryRef.get();
@@ -821,7 +756,14 @@ async function handleRegenerateResponse(originalAssistantMessage) {
             }
             return;
         }
-        
+
+        // VCPChatTarven (高级回复) - 收集当前生效的规则,
+        // 让"重新回复"与正常发送消息保持完全一致的注入行为
+        const tavernRules = (window.TavernManager && typeof window.TavernManager.getActiveRulesForScope === 'function')
+            ? (window.TavernManager.getActiveRulesForScope('agent') || [])
+            : [];
+        const tavernEngine = window.TavernRulesEngine;
+
         const messagesForVCP = await Promise.all(historyForRegeneration.map(async (msg, index) => {
             let vcpImageAttachmentsPayload = [];
             let vcpAudioAttachmentsPayload = [];
@@ -852,15 +794,22 @@ async function handleRegenerateResponse(originalAssistantMessage) {
                 for (const att of msg.attachments) {
                     const fileManagerData = att._fileManagerData || {};
                     // 🟢 同步：重新生成时的多级路径探测。优先使用 internalPath (物理路径)
-                    const filePathForContext = (fileManagerData && fileManagerData.internalPath) || 
-                                               att.localPath || 
-                                               att.src || 
+                    // 兼容两种附件结构：通过正常发送的附件（数据在 _fileManagerData 中）
+                    // 和通过 addAttachmentsToMessage 添加的附件（数据直接在 att 顶层）
+                    const filePathForContext = (fileManagerData && fileManagerData.internalPath) ||
+                                               att.internalPath ||
+                                               att.localPath ||
+                                               att.src ||
                                                (att.name || '未知文件');
 
-                    if (fileManagerData.imageFrames && fileManagerData.imageFrames.length > 0) {
+                    // 兼容读取：优先从 _fileManagerData 读取，回退到 att 顶层字段
+                    const effectiveImageFrames = fileManagerData.imageFrames || att.imageFrames;
+                    const effectiveExtractedText = fileManagerData.extractedText || att.extractedText;
+
+                    if (effectiveImageFrames && effectiveImageFrames.length > 0) {
                          historicalAppendedText += `\n\n[附加文件: ${filePathForContext} (扫描版PDF，已转换为图片)]`;
-                    } else if (fileManagerData.extractedText) {
-                        historicalAppendedText += `\n\n[附加文件: ${filePathForContext}]\n${fileManagerData.extractedText}\n[/附加文件结束: ${att.name || '未知文件'}]`;
+                    } else if (effectiveExtractedText) {
+                        historicalAppendedText += `\n\n[附加文件: ${filePathForContext}]\n${effectiveExtractedText}\n[/附加文件结束: ${att.name || '未知文件'}]`;
                     } else {
                         historicalAppendedText += `\n\n[附加文件: ${filePathForContext}]`;
                     }
@@ -870,21 +819,32 @@ async function handleRegenerateResponse(originalAssistantMessage) {
                 currentMessageTextContent = originalText;
             }
 
+            // VCPChatTarven: 仅在最后一条 user 消息尾部追加 user_suffix(只作用于本次 VCP 提交,不写入历史)
+            if (isLastUserMessage && tavernEngine) {
+                currentMessageTextContent = tavernEngine.applyUserSuffix(
+                    currentMessageTextContent || '',
+                    tavernRules,
+                    'agent'
+                );
+            }
+
             if (msg.attachments && msg.attachments.length > 0) {
                 // --- IMAGE PROCESSING ---
                 const imageAttachmentsPromises = msg.attachments.map(async att => {
                     const fileManagerData = att._fileManagerData || {};
+                    // 兼容读取：优先从 _fileManagerData 读取，回退到 att 顶层字段
+                    const effectiveImageFrames = fileManagerData.imageFrames || att.imageFrames;
                     // Case 1: Scanned PDF converted to image frames
-                    if (fileManagerData.imageFrames && fileManagerData.imageFrames.length > 0) {
-                        return fileManagerData.imageFrames.map(frameData => ({
+                    if (effectiveImageFrames && effectiveImageFrames.length > 0) {
+                        return effectiveImageFrames.map(frameData => ({
                             type: 'image_url',
                             image_url: { url: `data:image/jpeg;base64,${frameData}` }
                         }));
                     }
                     // Case 2: Regular image file (including GIFs that get framed)
-                    if (att.type.startsWith('image/')) {
+                    if (att.type && att.type.startsWith('image/')) {
                         try {
-                            const result = await electronAPI.getFileAsBase64(att.src);
+                            const result = await electronAPI.getFileAsBase64(att.src || att.internalPath);
                             if (result && result.success) {
                                 return result.base64Frames.map(frameData => ({
                                     type: 'image_url',
@@ -912,10 +872,10 @@ async function handleRegenerateResponse(originalAssistantMessage) {
                 // --- AUDIO PROCESSING ---
                 const supportedAudioTypes = ['audio/wav', 'audio/mpeg', 'audio/mp3', 'audio/aiff', 'audio/aac', 'audio/ogg', 'audio/flac'];
                 const audioAttachmentsPromises = msg.attachments
-                    .filter(att => supportedAudioTypes.includes(att.type))
+                    .filter(att => att.type && supportedAudioTypes.includes(att.type))
                     .map(async att => {
                         try {
-                            const result = await electronAPI.getFileAsBase64(att.src);
+                            const result = await electronAPI.getFileAsBase64(att.src || att.internalPath);
                             if (result && result.success && result.base64Frames.length > 0) {
                                 return result.base64Frames.map(frameData => ({
                                     type: 'image_url',
@@ -938,10 +898,10 @@ async function handleRegenerateResponse(originalAssistantMessage) {
 
                 // --- VIDEO PROCESSING ---
                 const videoAttachmentsPromises = msg.attachments
-                    .filter(att => att.type.startsWith('video/'))
+                    .filter(att => att.type && att.type.startsWith('video/'))
                     .map(async att => {
                         try {
-                            const result = await electronAPI.getFileAsBase64(att.src);
+                            const result = await electronAPI.getFileAsBase64(att.src || att.internalPath);
                             if (result && result.success && result.base64Frames.length > 0) {
                                 return result.base64Frames.map(frameData => ({
                                     type: 'image_url',
@@ -975,7 +935,10 @@ async function handleRegenerateResponse(originalAssistantMessage) {
                  finalContentPartsForVCP.push({ type: 'text', text: '(用户发送了附件，但无文本或图片内容)' });
             }
             
-            return { role: msg.role, content: finalContentPartsForVCP.length > 0 ? finalContentPartsForVCP : msg.content };
+            return attachTimestampMetaToVcpMessage(
+                { role: msg.role, content: finalContentPartsForVCP.length > 0 ? finalContentPartsForVCP : msg.content },
+                msg
+            );
         }));
 
         if (agentConfig.systemPrompt) {
@@ -1002,7 +965,33 @@ async function handleRegenerateResponse(originalAssistantMessage) {
                 systemPromptContent = prependedContent.join('\n') + '\n\n' + systemPromptContent;
             }
 
+            // VCPChatTarven: 在系统提示词尾部追加 system_suffix
+            if (tavernEngine) {
+                systemPromptContent = tavernEngine.applySystemSuffix(systemPromptContent, tavernRules, 'agent');
+            }
+
             messagesForVCP.unshift({ role: 'system', content: systemPromptContent });
+        } else if (tavernEngine) {
+            // 没有 systemPrompt,但仍可能存在 system_suffix 规则
+            const tavernSysOnly = tavernEngine.applySystemSuffix('', tavernRules, 'agent');
+            if (tavernSysOnly && tavernSysOnly.trim()) {
+                messagesForVCP.unshift({ role: 'system', content: tavernSysOnly });
+            }
+        }
+
+        // VCPChatTarven: 应用 context_inject 规则(按深度插入消息;system 不参与深度计算)
+        if (tavernEngine && Array.isArray(tavernRules) && tavernRules.some(r => r.type === 'context_inject' && r.enabled !== false)) {
+            const systemMsgs = messagesForVCP.filter(m => m.role === 'system');
+            const nonSystemMsgs = messagesForVCP.filter(m => m.role !== 'system');
+            const injected = tavernEngine.applyContextInject(nonSystemMsgs, tavernRules, 'agent', {
+                makeMessage: (role, text) => ({
+                    role,
+                    content: [{ type: 'text', text }],
+                    __tavernInjected: true
+                })
+            });
+            messagesForVCP.length = 0;
+            messagesForVCP.push(...systemMsgs, ...injected);
         }
 
         const modelConfigForVCP = {

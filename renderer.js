@@ -10,9 +10,12 @@ let globalSettings = {
     doNotDisturbLogMode: false, // 勿扰模式状态（已废弃，保留兼容性）
     filterEnabled: false, // 过滤总开关状态
     filterRules: [], // 过滤规则列表
+    toolAutoApprovalEnabled: false, // 工具调用默认允许总开关
+    toolAutoApprovalRules: [], // 工具调用默认允许规则列表
     enableRegenerateConfirmation: true, // 重新回复确认机制开关
     flowlockContinueDelay: 5, // 心流锁续写延迟（秒）
     enableThoughtChainInjection: false, // 元思考注入上下文开关
+    fileKey: '',
     enableWideChatLayout: false,
     chatBubbleMaxWidthDefault: 82,
     chatBubbleMaxWidthNotifications: 90,
@@ -33,12 +36,12 @@ let globalSettings = {
     voiceMode: 'local',
     speechRecognizerBrowserPath: '',
     speechRecognizerPagePath: 'Voicechatmodules/recognizer.html',
-    voiceNetworkSettings: {
-        sovitsUrl: 'https://api.siliconflow.cn',
+    voiceLocalSettings: {
+        sovitsUrl: '',
         sovitsKey: ''
     },
-    voiceLocalSettings: {
-        providerUrl: '',
+    voiceNetworkSettings: {
+        providerUrl: 'https://api.siliconflow.cn',
         providerKey: ''
     }
 };
@@ -190,7 +193,7 @@ function updateSendButtonState() {
     sendMessageBtn.dataset.mode = nextMode;
     sendMessageBtn.classList.toggle('interrupt-mode', nextMode === 'interrupt');
     sendMessageBtn.innerHTML = nextMode === 'interrupt' ? INTERRUPT_SEND_BUTTON_HTML : DEFAULT_SEND_BUTTON_HTML;
-    sendMessageBtn.title = nextMode === 'interrupt' ? '中止回复' : '发送消息 (Ctrl+Enter)';
+    sendMessageBtn.title = nextMode === 'interrupt' ? '中止回复' : '发送消息/右键高级回复';
 }
 
 async function interruptActiveResponseFromSendButton() {
@@ -1210,6 +1213,7 @@ import { setupEventListeners } from './modules/event-listeners.js';
                 uiHelper: uiHelperFunctions,
                 refs: {
                     currentSelectedItemRef: { get: () => currentSelectedItem },
+                    currentTopicIdRef: { get: () => currentTopicId },
                 },
                 modules: {
                     chatManager: window.chatManager,
@@ -1991,6 +1995,7 @@ async function syncGlobalSettingsToUI() {
     const completedUrl = window.settingsManager.completeVcpUrl(globalSettings.vcpServerUrl || '');
     safeSet('vcpServerUrl', completedUrl);
     safeSet('vcpApiKey', globalSettings.vcpApiKey || '');
+    safeSet('fileKey', globalSettings.fileKey || '');
     safeSet('vcpLogUrl', globalSettings.vcpLogUrl || '');
     safeSet('vcpLogKey', globalSettings.vcpLogKey || '');
     safeSet('topicSummaryModel', globalSettings.topicSummaryModel || '');
@@ -2000,10 +2005,10 @@ async function syncGlobalSettingsToUI() {
     safeCheck('voiceModeNetwork', (globalSettings.voiceMode || 'local') === 'network');
     safeSet('speechRecognizerBrowserPath', globalSettings.speechRecognizerBrowserPath || '');
     safeSet('speechRecognizerPagePath', globalSettings.speechRecognizerPagePath || 'Voicechatmodules/recognizer.html');
-    safeSet('voiceNetworkSovitsUrl', globalSettings.voiceNetworkSettings?.sovitsUrl || '');
-    safeSet('voiceNetworkSovitsKey', globalSettings.voiceNetworkSettings?.sovitsKey || '');
-    safeSet('voiceLocalProviderUrl', globalSettings.voiceLocalSettings?.providerUrl || '');
-    safeSet('voiceLocalProviderKey', globalSettings.voiceLocalSettings?.providerKey || '');
+    safeSet('voiceLocalSovitsUrl', globalSettings.voiceLocalSettings?.sovitsUrl || '');
+    safeSet('voiceLocalSovitsKey', globalSettings.voiceLocalSettings?.sovitsKey || '');
+    safeSet('voiceNetworkProviderUrl', globalSettings.voiceNetworkSettings?.providerUrl || '');
+    safeSet('voiceNetworkProviderKey', globalSettings.voiceNetworkSettings?.providerKey || '');
     
     // Network Notes Paths
     const networkNotesPathsContainer = document.getElementById('networkNotesPathsContainer');
@@ -2251,14 +2256,7 @@ if (window.marked && typeof window.marked.Marked === 'function') { // Ensure Mar
             pedantic: false,        // 不使用严格的 Markdown 规则
             sanitize: false,        // 不清理 HTML（允许内嵌 HTML）
             smartLists: true,       // 使用更智能的列表行为
-            smartypants: false,     // 不使用智能标点符号
-            highlight: function(code, lang) {
-                if (window.hljs) {
-                    const language = window.hljs.getLanguage(lang) ? lang : 'plaintext';
-                    return window.hljs.highlight(code, { language }).value;
-                }
-                return code; // Fallback for safety
-            }
+            smartypants: false      // 不使用智能标点符号
         });
         // Optional: Add custom processing like quote spans if needed
     } catch (err) {

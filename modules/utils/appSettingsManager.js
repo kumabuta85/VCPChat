@@ -49,6 +49,16 @@ class SettingsValidator {
             hasIssues = true;
         }
         
+        if (!Array.isArray(validated.filterRules)) {
+            validated.filterRules = [];
+            hasIssues = true;
+        }
+
+        if (!Array.isArray(validated.toolAutoApprovalRules)) {
+            validated.toolAutoApprovalRules = [];
+            hasIssues = true;
+        }
+        
         return { validated, hasIssues };
     }
 }
@@ -70,9 +80,14 @@ class SettingsManager extends EventEmitter {
             userName: '用户',
             vcpServerUrl: '',
             vcpApiKey: '',
+            fileKey: '',
             vcpLogUrl: '',
             vcpLogKey: '',
             networkNotesPaths: [],
+            filterEnabled: false,
+            filterRules: [],
+            toolAutoApprovalEnabled: false,
+            toolAutoApprovalRules: [],
             enableAgentBubbleTheme: false,
             enableSmoothStreaming: false,
             enableWideChatLayout: false,
@@ -98,11 +113,11 @@ class SettingsManager extends EventEmitter {
             voiceMode: 'local',
             speechRecognizerBrowserPath: '',
             speechRecognizerPagePath: 'Voicechatmodules/recognizer.html',
-            voiceNetworkSettings: {
+            voiceLocalSettings: {
                 sovitsUrl: '',
                 sovitsKey: ''
             },
-            voiceLocalSettings: {
+            voiceNetworkSettings: {
                 providerUrl: '',
                 providerKey: ''
             },
