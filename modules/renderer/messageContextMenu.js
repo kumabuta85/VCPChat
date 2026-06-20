@@ -331,13 +331,60 @@ function showContextMenu(event, messageItem, message) {
             };
             menu.appendChild(readAloudOption);
             
-            // Add "Toggle Auto Speak" option
+            const stopSpeakOption = document.createElement('div');
+            stopSpeakOption.classList.add('context-menu-item', 'warning-item');
+            stopSpeakOption.innerHTML = `<i class="fas fa-stop"></i> 停止朗读`;
+            stopSpeakOption.onclick = () => {
+                electronAPI.sovitsStop();
+                uiHelper.showToastNotification("已停止朗读", "info");
+                closeContextMenu();
+            };
+            menu.appendChild(stopSpeakOption);
+            
+            // 全局禁用自动朗读选项
+            const globalSettings = mainRefs.globalSettingsRef.get();
+            const isGlobalAutoSpeakDisabled = globalSettings && globalSettings.disableAutoSpeak === true;
+            
+            const toggleGlobalAutoSpeakOption = document.createElement('div');
+            toggleGlobalAutoSpeakOption.classList.add('context-menu-item', isGlobalAutoSpeakDisabled ? 'info-item' : 'warning-item');
+            toggleGlobalAutoSpeakOption.innerHTML = isGlobalAutoSpeakDisabled
+                ? `<i class="fas fa-volume-up"></i> 启用自动朗读`
+                : `<i class="fas fa-volume-mute"></i> 禁用自动朗读`;
+            toggleGlobalAutoSpeakOption.onclick = async () => {
+                // 切换全局 autoSpeak 状态
+                const newGlobalSettings = {
+                    ...globalSettings,
+                    disableAutoSpeak: !isGlobalAutoSpeakDisabled
+                };
+                
+                try {
+                    await mainRefs.electronAPI.saveSettings(newGlobalSettings);
+                    mainRefs.globalSettingsRef.set(newGlobalSettings);
+                    uiHelper.showToastNotification(
+                        isGlobalAutoSpeakDisabled ? '已启用自动朗读' : '已禁用自动朗读',
+                        'success'
+                    );
+                } catch (error) {
+                    console.error('保存全局自动朗读设置失败:', error);
+                    uiHelper.showToastNotification('保存设置失败', 'error');
+                }
+                
+                closeContextMenu();
+            };
+            menu.appendChild(toggleGlobalAutoSpeakOption);
+            
+            // 分隔线
+            const divider = document.createElement('div');
+            divider.classList.add('context-menu-divider');
+            menu.appendChild(divider);
+            
+            // 仅针对当前消息的选项
             const toggleAutoSpeakOption = document.createElement('div');
             const isAutoSpeakEnabled = message.autoSpeak !== false; // 默认为 true
             toggleAutoSpeakOption.classList.add('context-menu-item', isAutoSpeakEnabled ? 'warning-item' : 'info-item');
             toggleAutoSpeakOption.innerHTML = isAutoSpeakEnabled 
-                ? `<i class="fas fa-volume-mute"></i> 禁用自动朗读`
-                : `<i class="fas fa-volume-up"></i> 启用自动朗读`;
+                ? `<i class="fas fa-volume-mute"></i> 对此消息禁用自动朗读`
+                : `<i class="fas fa-volume-up"></i> 对此消息启用自动朗读`;
             toggleAutoSpeakOption.onclick = async () => {
                 // 切换 autoSpeak 状态
                 message.autoSpeak = !isAutoSpeakEnabled;
@@ -355,7 +402,7 @@ function showContextMenu(event, messageItem, message) {
                                 history[msgIndex].autoSpeak = message.autoSpeak;
                                 await electronAPI.saveChatHistory(agentId, topicId, history);
                                 uiHelper.showToastNotification(
-                                    isAutoSpeakEnabled ? '已禁用自动朗读' : '已启用自动朗读',
+                                    isAutoSpeakEnabled ? '已对此消息禁用自动朗读' : '已对此消息启用自动朗读',
                                     'success'
                                 );
                             }

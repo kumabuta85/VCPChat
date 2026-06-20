@@ -1,0 +1,654 @@
+/*
+ * styles/themes/themes霓虹雨城.css
+ * Curated by Coco for kuma
+ * Neon Rain City Theme
+ * A cyber-neon futuristic city theme with restrained glass glow.
+ */
+
+/* * =================================================================
+ * Dark Theme (Default): Neon Rain City Midnight
+ * 赛博霓虹未来都市夜景
+ * =================================================================
+ */
+:root {
+    /* --- Wallpaper Interface --- */
+    --chat-wallpaper-dark: url('../assets/wallpaper/cyber_city_night.png');
+
+    /* --- Base Colors --- */
+    --primary-bg: #09111d;         /* 主背景 - 深夜蓝黑 */
+    --secondary-bg: #101a2b;       /* 侧边栏/面板背景 - 深靛蓝 */
+    --tertiary-bg: #070d18;        /* 聊天区背景 - 更深夜色 */
+    --accent-bg: #162238;          /* 悬停/选中背景 */
+    --border-color: rgba(120, 180, 255, 0.18);
+    --input-bg: rgba(13, 22, 38, 0.78);
+
+    --panel-bg-dark: rgba(16, 26, 43, 0.72); /* 未来面板玻璃底 */
+
+    /* --- Text Colors --- */
+    --primary-text: #eaf6ff;       /* 主要文字 - 冷白蓝 */
+    --secondary-text: #9bb2c9;     /* 次级文字 - 雾蓝灰 */
+    --highlight-text: #00d9ff;     /* 高亮文字 - 霓虹青 */
+    --text-on-accent: #ffffff;
+    --placeholder-text: #6f86a0;
+    --quoted-text: #ff8ad8;        /* 引用文字 - 霓虹粉 */
+    --user-text: #f4fbff;
+    --agent-text: #eaf6ff;
+
+    /* --- Bubble Colors --- */
+    --user-bubble-bg: linear-gradient(135deg, rgba(0, 217, 255, 0.18), rgba(122, 92, 255, 0.18));
+    --assistant-bubble-bg: rgba(18, 29, 48, 0.42);
+
+    /* --- UI Element Colors --- */
+    --button-bg: linear-gradient(135deg, #00d9ff, #7a5cff);
+    --button-hover-bg: linear-gradient(135deg, #32e6ff, #916dff);
+    --danger-color: #ff6b81;
+    --danger-hover-bg: #ff4f68;
+    --success-color: #62d39f;
+    --notification-bg: rgba(15, 25, 40, 0.92);
+    --notification-header-bg: rgba(18, 31, 52, 0.96);
+    --notification-border: rgba(0, 217, 255, 0.35);
+    --tool-bubble-bg: rgba(18, 34, 56, 0.32);
+    --tool-bubble-border: rgba(0, 217, 255, 0.45);
+
+    /* --- Scrollbar --- */
+    --scrollbar-track: rgba(9, 17, 29, 0.42);
+    --scrollbar-thumb: rgba(0, 217, 255, 0.35);
+    --scrollbar-thumb-hover: rgba(122, 92, 255, 0.42);
+
+    /* --- Shimmer Effect for Loading --- */
+    --shimmer-color-transparent: rgba(234, 246, 255, 0.20);
+    --shimmer-color-highlight: rgba(234, 246, 255, 0.78);
+
+    /* --- Text Shadow for Frosted Panels --- */
+    --panel-text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+
+    /* --- Unified Panel Background --- */
+    --panel-bg: var(--panel-bg-dark);
+}
+
+body {
+    background-image: var(--chat-wallpaper-dark);
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+/* * =================================================================
+ * Light Theme: Neon Rain City Morning
+ * 银蓝清晨未来都市
+ * =================================================================
+ */
+body.light-theme {
+    background-image: var(--chat-wallpaper-light);
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+
+    /* --- Wallpaper Interface --- */
+    --chat-wallpaper-light: url('../assets/wallpaper/cyber_city_morning.png');
+
+    /* --- Base Colors --- */
+    --primary-bg: #edf5ff;
+    --secondary-bg: #f8fbff;
+    --tertiary-bg: #e5eef8;
+    --accent-bg: #d9e8f8;
+    --border-color: rgba(117, 161, 214, 0.24);
+    --input-bg: rgba(255, 255, 255, 0.82);
+
+    --panel-bg-light: rgba(245, 250, 255, 0.74);
+
+    /* --- Text Colors --- */
+    --primary-text: #1a3550;
+    --secondary-text: #5f7894;
+    --highlight-text: #1297d6;
+    --text-on-accent: #ffffff;
+    --placeholder-text: #8ca1b7;
+    --quoted-text: #a54bcd;
+    --user-text: #17334d;
+    --agent-text: #1a3550;
+
+    /* --- Bubble Colors --- */
+    --user-bubble-bg: linear-gradient(135deg, rgba(18, 151, 214, 0.14), rgba(122, 92, 255, 0.10));
+    --assistant-bubble-bg: rgba(255, 255, 255, 0.36);
+
+    /* --- UI Element Colors --- */
+    --button-bg: linear-gradient(135deg, #3cb8e8, #7a8cff);
+    --button-hover-bg: linear-gradient(135deg, #5cc8f0, #91a0ff);
+    --danger-color: #e56b6f;
+    --danger-hover-bg: #d94c52;
+    --success-color: #49b97f;
+    --notification-bg: rgba(247, 250, 255, 0.96);
+    --notification-header-bg: rgba(236, 244, 252, 0.98);
+    --notification-border: rgba(60, 184, 232, 0.35);
+    --tool-bubble-bg: rgba(220, 235, 247, 0.45);
+    --tool-bubble-border: rgba(60, 184, 232, 0.38);
+
+    /* --- Scrollbar --- */
+    --scrollbar-track: rgba(205, 219, 235, 0.56);
+    --scrollbar-thumb: rgba(90, 162, 214, 0.44);
+    --scrollbar-thumb-hover: rgba(122, 140, 255, 0.42);
+
+    /* --- Shimmer Effect --- */
+    --shimmer-color-transparent: rgba(26, 53, 80, 0.05);
+    --shimmer-color-highlight: rgba(26, 53, 80, 0.12);
+
+    /* --- Text Shadow for Frosted Panels --- */
+    --panel-text-shadow: none;
+
+    /* --- Unified Panel Background --- */
+    --panel-bg: var(--panel-bg-light);
+}
+
+/* * =================================================================
+ * Enhanced Frosted Glass Effect
+ * 增强磨砂玻璃与轻霓虹发光
+ * =================================================================
+ */
+
+/* 聊天气泡玻璃感 */
+.message-bubble {
+    backdrop-filter: blur(14px) saturate(128%);
+    -webkit-backdrop-filter: blur(14px) saturate(128%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow:
+        0 8px 28px rgba(0, 0, 0, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 悬停时增加轻微上浮与发光 */
+.message-bubble:hover {
+    backdrop-filter: blur(18px) saturate(135%);
+    -webkit-backdrop-filter: blur(18px) saturate(135%);
+    transform: translateY(-1px);
+    box-shadow:
+        0 12px 36px rgba(0, 0, 0, 0.22),
+        0 0 16px rgba(0, 217, 255, 0.10);
+}
+
+/* 工具气泡强化科技感 */
+.tool-bubble {
+    backdrop-filter: blur(12px) saturate(118%);
+    -webkit-backdrop-filter: blur(12px) saturate(118%);
+    border: 1px solid var(--tool-bubble-border);
+    background: var(--tool-bubble-bg);
+    box-shadow:
+        0 6px 24px rgba(0, 0, 0, 0.14),
+        0 0 12px rgba(0, 217, 255, 0.08);
+}
+
+/* 深色主题下的阴影与微光 */
+:root .message-bubble {
+    box-shadow:
+        0 8px 30px rgba(0, 0, 0, 0.30),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10),
+        0 0 16px rgba(0, 217, 255, 0.05);
+}
+
+/* 浅色主题下柔和处理 */
+body.light-theme .message-bubble {
+    box-shadow:
+        0 4px 18px rgba(64, 88, 118, 0.10),
+        inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+/* 输入框微科技感 */
+.chat-input,
+.message-input,
+textarea,
+input[type="text"] {
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+    transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.chat-input:focus,
+.message-input:focus,
+textarea:focus,
+input[type="text"]:focus {
+    box-shadow:
+        0 0 0 2px rgba(0, 217, 255, 0.14),
+        0 0 14px rgba(0, 217, 255, 0.10);
+}
+
+/* 让按钮更有网页感，但不破坏主程序布局 */
+button,
+.send-button,
+.action-button {
+    box-shadow:
+        0 6px 18px rgba(0, 0, 0, 0.14),
+        0 0 12px rgba(0, 217, 255, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.25s ease;
+}
+
+button:hover,
+.send-button:hover,
+.action-button:hover {
+    transform: translateY(-1px);
+    box-shadow:
+        0 10px 24px rgba(0, 0, 0, 0.18),
+        0 0 16px rgba(122, 92, 255, 0.10);
+}/* =========================================================
+   Cyber Dialogue Renderer - Chromatic Cyber Card
+   写入到 themes霓虹雨城.css
+   用于聊天内容渲染层的视觉风格
+   ========================================================= */
+
+#vcp-root .cyber-wrap{
+  max-width: 860px;
+  margin: 0 auto;
+  border-radius: 24px;
+  overflow: hidden;
+  position: relative;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(0,234,255,.18), transparent 24%),
+    radial-gradient(circle at 88% 0%, rgba(122,92,255,.24), transparent 28%),
+    radial-gradient(circle at 50% 100%, rgba(255,31,191,.12), transparent 32%),
+    linear-gradient(180deg, rgba(8,16,28,.97), rgba(10,18,32,.94));
+  border: 1px solid rgba(120,190,255,.18);
+  box-shadow:
+    0 18px 60px rgba(0,0,0,.34),
+    inset 0 1px 0 rgba(255,255,255,.05),
+    0 0 28px rgba(0,217,255,.10);
+  animation: cyberPanelBreath 5.5s ease-in-out infinite;
+}
+
+#vcp-root .cyber-wrap::before{
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(115deg, transparent 0%, rgba(255,255,255,.05) 14%, transparent 28%),
+    linear-gradient(180deg, rgba(0,217,255,.04), transparent 32%, rgba(122,92,255,.04) 68%, rgba(255,31,191,.03) 100%);
+  transform: translateX(-120%);
+  animation: cyberScanSweep 4.2s ease-in-out infinite;
+}
+
+#vcp-root .cyber-wrap::after{
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,.018) 0px,
+    rgba(255,255,255,.018) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  opacity: .18;
+  mix-blend-mode: screen;
+  animation: cyberScanlineFlicker 2.4s linear infinite;
+}
+
+#vcp-root .cyber-header{
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  background: linear-gradient(90deg, rgba(0,217,255,.04), rgba(122,92,255,.03), rgba(255,31,191,.03));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+#vcp-root .cyber-header-left{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#vcp-root .pulse-dot{
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #00e5ff, #ff44d0);
+  box-shadow:
+    0 0 16px rgba(0,229,255,.8),
+    0 0 18px rgba(255,68,208,.35);
+  animation: cyberPulseDot 1.8s ease-in-out infinite;
+}
+
+#vcp-root .status-chip{
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #d6f8ff;
+  background: linear-gradient(135deg, rgba(0,217,255,.09), rgba(122,92,255,.10), rgba(255,31,191,.08));
+  border: 1px solid rgba(0,217,255,.18);
+  animation: cyberChipGlow 2.3s ease-in-out infinite;
+}
+
+#vcp-root .cyber-shell{
+  padding: 22px;
+}
+
+#vcp-root .main-card{
+  padding: 20px;
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(16,30,54,.95), rgba(17,18,42,.92), rgba(22,16,40,.90));
+  border: 1px solid rgba(113,189,255,.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.06),
+    0 12px 34px rgba(0,0,0,.24),
+    0 0 18px rgba(0,217,255,.06);
+}
+
+#vcp-root .main-card::before{
+  content: "";
+  position: absolute;
+  inset: -20% -40% auto auto;
+  width: 70%;
+  height: 70%;
+  background:
+    radial-gradient(circle, rgba(0,217,255,.12), transparent 50%),
+    radial-gradient(circle at 60% 40%, rgba(255,31,191,.08), transparent 42%);
+  animation: cyberOrbShift 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+#vcp-root .main-card::after{
+  content: "";
+  position: absolute;
+  left: -30%;
+  bottom: 0;
+  width: 44%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0,217,255,.75), rgba(122,92,255,.65), rgba(255,31,191,.58), transparent);
+  animation: cyberLineDrift 3.2s linear infinite;
+}
+
+#vcp-root .avatar-box{
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(0,229,255,.26), rgba(122,92,255,.26), rgba(255,31,191,.22));
+  border: 1px solid rgba(0,217,255,.20);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #dffcff;
+  box-shadow:
+    0 0 20px rgba(0,217,255,.10),
+    0 0 18px rgba(255,31,191,.06);
+  animation: cyberSoftFloat 2.8s ease-in-out infinite;
+}
+
+#vcp-root .headline{
+  font-size: 28px;
+  font-weight: 850;
+  letter-spacing: .02em;
+  margin-bottom: 10px;
+  background: linear-gradient(90deg, #ffffff 0%, #8ff5ff 32%, #a892ff 68%, #ff8de0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 24px rgba(0,217,255,.08);
+}
+
+#vcp-root .subcard{
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.06);
+  background: rgba(255,255,255,.03);
+  position: relative;
+  overflow: hidden;
+}
+
+#vcp-root .subcard.cyber{
+  background: linear-gradient(135deg, rgba(0,217,255,.06), rgba(122,92,255,.06), rgba(255,31,191,.05));
+  border: 1px solid rgba(0,217,255,.12);
+}
+
+#vcp-root .subcard::before{
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(120deg, transparent 0%, rgba(255,255,255,.045) 18%, transparent 38%),
+    radial-gradient(circle at 0% 50%, rgba(0,217,255,.10), transparent 28%),
+    radial-gradient(circle at 100% 50%, rgba(255,31,191,.06), transparent 26%);
+  transform: translateX(-110%);
+  animation: cyberMiniSweep 5.2s ease-in-out infinite;
+}
+
+#vcp-root .kicker{
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  background: linear-gradient(90deg, #84e9ff, #9f8fff, #ff8bda);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+#vcp-root .info-grid{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+#vcp-root .info-box{
+  padding: 14px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255,255,255,.03), rgba(255,255,255,.02));
+  border: 1px solid rgba(255,255,255,.06);
+  position: relative;
+  overflow: hidden;
+  transition: transform .25s ease, box-shadow .25s ease;
+  animation: cyberBoxBreath 4.6s ease-in-out infinite;
+}
+
+#vcp-root .info-box:hover{
+  transform: translateY(-3px);
+  box-shadow:
+    0 14px 32px rgba(0,0,0,.20),
+    0 0 20px rgba(0,217,255,.12),
+    0 0 28px rgba(255,31,191,.06);
+}
+
+#vcp-root .info-box::after{
+  content: "";
+  position: absolute;
+  left: -25%;
+  bottom: 0;
+  width: 52%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0,217,255,.65), rgba(122,92,255,.60), rgba(255,31,191,.55), transparent);
+  animation: cyberLineDrift 3.8s linear infinite;
+  opacity: .95;
+}
+
+#vcp-root .btn-primary{
+  border: none;
+  cursor: pointer;
+  padding: 11px 16px;
+  border-radius: 14px;
+  color: #f6fcff;
+  background: linear-gradient(135deg, #00cfff, #6d6cff, #ff4fcf);
+  box-shadow:
+    0 10px 24px rgba(0,0,0,.22),
+    0 0 18px rgba(0,217,255,.14),
+    0 0 22px rgba(255,31,191,.08);
+  font-weight: 700;
+  animation: cyberBtnBreath 2.2s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+#vcp-root .btn-primary::before{
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,.18) 20%, transparent 42%);
+  transform: translateX(-120%);
+  animation: cyberScanSweep 2.8s ease-in-out infinite;
+}
+
+#vcp-root .btn-secondary{
+  border: 1px solid rgba(255,255,255,.10);
+  cursor: pointer;
+  padding: 11px 16px;
+  border-radius: 14px;
+  color: #dff8ff;
+  background: linear-gradient(135deg, rgba(0,217,255,.04), rgba(122,92,255,.04), rgba(255,31,191,.04));
+  font-weight: 600;
+  transition: all .25s ease;
+  animation: cyberChipGlow 3.8s ease-in-out infinite;
+}
+
+#vcp-root .btn-secondary:hover{
+  background: linear-gradient(135deg, rgba(0,217,255,.07), rgba(122,92,255,.07), rgba(255,31,191,.06));
+  box-shadow:
+    0 0 18px rgba(0,217,255,.10),
+    0 0 22px rgba(255,31,191,.06);
+}
+
+@keyframes cyberPanelBreath{
+  0%,100%{
+    box-shadow:
+      0 18px 60px rgba(0,0,0,.34),
+      inset 0 1px 0 rgba(255,255,255,.05),
+      0 0 20px rgba(0,217,255,.07);
+  }
+  50%{
+    box-shadow:
+      0 20px 66px rgba(0,0,0,.36),
+      inset 0 1px 0 rgba(255,255,255,.06),
+      0 0 34px rgba(0,217,255,.14),
+      0 0 56px rgba(122,92,255,.10),
+      0 0 72px rgba(255,31,191,.06);
+  }
+}
+
+@keyframes cyberPulseDot{
+  0%,100%{
+    transform: scale(1);
+    box-shadow:
+      0 0 14px rgba(0,229,255,.72),
+      0 0 16px rgba(255,68,208,.24);
+  }
+  50%{
+    transform: scale(1.22);
+    box-shadow:
+      0 0 28px rgba(0,229,255,1),
+      0 0 24px rgba(255,68,208,.46);
+  }
+}
+
+@keyframes cyberChipGlow{
+  0%,100%{
+    box-shadow: 0 0 0 rgba(0,217,255,0);
+  }
+  50%{
+    box-shadow:
+      0 0 18px rgba(0,217,255,.16),
+      0 0 32px rgba(122,92,255,.09),
+      0 0 22px rgba(255,31,191,.08);
+  }
+}
+
+@keyframes cyberBtnBreath{
+  0%,100%{
+    box-shadow:
+      0 10px 24px rgba(0,0,0,.22),
+      0 0 12px rgba(0,217,255,.10),
+      0 0 10px rgba(255,31,191,.05);
+  }
+  50%{
+    box-shadow:
+      0 14px 32px rgba(0,0,0,.26),
+      0 0 28px rgba(0,217,255,.22),
+      0 0 40px rgba(122,92,255,.14),
+      0 0 26px rgba(255,31,191,.12);
+  }
+}
+
+@keyframes cyberScanSweep{
+  0%{ transform: translateX(-120%); }
+  45%,100%{ transform: translateX(145%); }
+}
+
+@keyframes cyberMiniSweep{
+  0%{ transform: translateX(-110%); }
+  48%,100%{ transform: translateX(130%); }
+}
+
+@keyframes cyberScanlineFlicker{
+  0%,100%{ opacity: .12; }
+  50%{ opacity: .22; }
+}
+
+@keyframes cyberLineDrift{
+  0%{ transform: translateX(0); }
+  100%{ transform: translateX(240%); }
+}
+
+@keyframes cyberSoftFloat{
+  0%,100%{ transform: translateY(0); }
+  50%{ transform: translateY(-3px); }
+}
+
+@keyframes cyberOrbShift{
+  0%,100%{
+    transform: translate(0,0) scale(1);
+    opacity: .45;
+  }
+  50%{
+    transform: translate(-12px,10px) scale(1.08);
+    opacity: .72;
+  }
+}
+
+@keyframes cyberBoxBreath{
+  0%,100%{
+    box-shadow: 0 0 0 rgba(0,217,255,0);
+  }
+  50%{
+    box-shadow:
+      0 0 16px rgba(0,217,255,.06),
+      0 0 24px rgba(122,92,255,.04),
+      0 0 18px rgba(255,31,191,.04);
+  }
+}
+
+@media (max-width: 720px){
+  #vcp-root .info-grid{
+    grid-template-columns: 1fr;
+  }
+
+  #vcp-root .headline{
+    font-size: 22px;
+  }
+
+  #vcp-root .cyber-shell{
+    padding: 14px;
+  }
+
+  #vcp-root .main-card{
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce){
+  #vcp-root .cyber-wrap,
+  #vcp-root .cyber-wrap::before,
+  #vcp-root .cyber-wrap::after,
+  #vcp-root .pulse-dot,
+  #vcp-root .status-chip,
+  #vcp-root .main-card::before,
+  #vcp-root .main-card::after,
+  #vcp-root .avatar-box,
+  #vcp-root .subcard::before,
+  #vcp-root .info-box,
+  #vcp-root .info-box::after,
+  #vcp-root .btn-primary,
+  #vcp-root .btn-primary::before,
+  #vcp-root .btn-secondary{
+    animation: none !important;
+  }
+}
